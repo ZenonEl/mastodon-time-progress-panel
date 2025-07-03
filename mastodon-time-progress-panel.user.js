@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Mastodon Time & Progress Panel (True Final)
+// @name         Mastodon Time & Progress Panel
 // @namespace    https://github.com/ZenonEl
 // @version      1.8.0
 // @description  A panel with a custom calendar that puts a generated search query into the search box on the /explore page and simulates an Enter press.
@@ -58,6 +58,14 @@
             goToExplore: "Paste it into the search field and press Enter.",
             copiedToClipboard: 'Query copied to clipboard!',
             notificationTitle: 'Search Ready!',
+            advancedFilters: 'Advanced filters',
+            contentType: 'Content type:',
+            postType: 'Post type:',
+            searchScope: 'Search scope:',
+            startDate: 'Start date',
+            endDate: 'End date',
+            apply: 'Apply',
+            language: 'Language'
         },
         ru: {
             targetNotFound: '❌ Целевой элемент для панели не найден!',
@@ -74,6 +82,14 @@
             goToExplore: "Вставьте его в поле для поиска и нажмите Enter",
             copiedToClipboard: 'Запрос скопирован в буфер обмена!',
             notificationTitle: 'Готово к поиску!',
+            advancedFilters: 'Дополнительные фильтры',
+            contentType: 'Тип контента:',
+            postType: 'Тип поста:',
+            searchScope: 'Область поиска:',
+            startDate: 'Начальная дата',
+            endDate: 'Конечная дата',
+            apply: 'Применить',
+            language: 'Язык'
         }
     };
 
@@ -232,8 +248,7 @@
             marginTop: '1.5em',
             paddingTop: '1em',
             borderTop: `1px solid ${themeVars.borderColor}`,
-            opacity: '0.9',
-            color: themeVars.textColor
+            opacity: '0.9'
         });
 
         const calendarView = document.createElement('div');
@@ -243,7 +258,7 @@
         let viewDate = new Date();
         let startDate = null;
         let endDate = null;
-        let searchAuthor = 'all';
+        let searchAuthor = GM_getValue('searchAuthor', 'all');
         let myUsername = null;
 
         try {
@@ -274,8 +289,7 @@
                 display: 'flex',
                 justifyContent: 'space-between',
                 fontSize: '0.95em',
-                marginBottom: '0.5em',
-                color: themeVars.textColor
+                marginBottom: '0.5em'
             });
 
             const textPart = document.createElement('span');
@@ -351,19 +365,16 @@
             nextBtn.textContent = '>';
             const monthLabel = document.createElement('span');
             monthLabel.textContent = `${monthName} ${year}`;
-            monthLabel.style.color = themeVars.textColor;
 
             [prevBtn, nextBtn].forEach(btn => {
                 Object.assign(btn.style, {
                     background: themeVars.progressBarShadow,
                     border: 'none',
                     borderRadius: '4px',
-                    color: themeVars.textColor,
                     cursor: 'pointer',
+                    color: 'inherit',
                     padding: '0.3em 0.7em'
                 });
-                btn.onmouseover = () => btn.style.background = themeVars.accentGreen;
-                btn.onmouseout = () => btn.style.background = themeVars.progressBarShadow;
             });
 
             prevBtn.onclick = () => { viewDate.setMonth(viewDate.getMonth() - 1); drawCalendar(); };
@@ -376,12 +387,13 @@
                 display: 'grid',
                 gridTemplateColumns: 'repeat(7, 1fr)',
                 gap: '5px',
+                color: 'inherit',
                 textAlign: 'center'
             });
 
             const weekdays = lang === 'ru' ?
-                ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] :
-                ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+                  ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] :
+            ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
             weekdays.forEach(day => {
                 const el = document.createElement('div');
@@ -397,7 +409,7 @@
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             let startOffset = lang === 'ru' ?
                 (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1) :
-                firstDay.getDay();
+            firstDay.getDay();
 
             for (let i = 1; i <= daysInMonth; i++) {
                 const dayBtn = document.createElement('button');
@@ -411,9 +423,9 @@
                 Object.assign(dayBtn.style, {
                     background: 'transparent',
                     border: '1px solid transparent',
-                    color: 'inherit',
                     cursor: 'pointer',
                     padding: '0.5em 0',
+                    color: 'inherit',
                     borderRadius: '4px'
                 });
 
@@ -447,19 +459,130 @@
                         }
                     }
                     drawCalendar();
+                    updateAuthorButtons();
                 };
 
                 daysGrid.appendChild(dayBtn);
             }
 
-            const controls = document.createElement('div');
-            Object.assign(controls.style, {
-                marginTop: '1em',
+            // --- Date Input Fields ---
+            const dateInputsContainer = document.createElement('div');
+            Object.assign(dateInputsContainer.style, {
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.7em'
+                gap: '0.5em',
+                marginBottom: '1em'
             });
 
+            const startDateLabel = document.createElement('label');
+            startDateLabel.textContent = t('startDate');
+            startDateLabel.style.fontSize = '0.9em';
+
+            const startDateInput = document.createElement('input');
+            startDateInput.type = 'text';
+            startDateInput.placeholder = 'YYYY-MM-DD';
+            Object.assign(startDateInput.style, {
+                padding: '0.5em',
+                borderRadius: '4px',
+                border: `1px solid ${themeVars.borderColor}`,
+                background: 'transparent',
+                color: 'inherit'
+            });
+
+            const endDateLabel = document.createElement('label');
+            endDateLabel.textContent = t('endDate');
+            endDateLabel.style.fontSize = '0.9em';
+
+            const endDateInput = document.createElement('input');
+            endDateInput.type = 'text';
+            endDateInput.placeholder = 'YYYY-MM-DD';
+            Object.assign(endDateInput.style, {
+                padding: '0.5em',
+                borderRadius: '4px',
+                border: `1px solid ${themeVars.borderColor}`,
+                color: 'inherit',
+                background: 'transparent'
+            });
+
+            const applyDatesBtn = document.createElement('button');
+            applyDatesBtn.textContent = t('apply');
+            Object.assign(applyDatesBtn.style, {
+                background: themeVars.accentGreen,
+                border: 'none',
+                padding: '0.5em',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                marginTop: '0.5em',
+                color: 'inherit'
+            });
+
+            applyDatesBtn.onclick = () => {
+                const startValue = startDateInput.value.trim();
+                const endValue = endDateInput.value.trim();
+
+                const parseDate = (dateStr) => {
+                    if (!dateStr) return null;
+                    const parts = dateStr.split(/[\s.,\-/]+/);
+                    if (parts.length === 3) {
+                        const year = parseInt(parts[0]);
+                        const month = parseInt(parts[1]) - 1;
+                        const day = parseInt(parts[2]);
+                        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                            return new Date(year, month, day);
+                        }
+                    }
+                    return null;
+                };
+
+                startDate = parseDate(startValue);
+                endDate = parseDate(endValue);
+
+                if (startDate && endDate && endDate < startDate) {
+                    [startDate, endDate] = [endDate, startDate];
+                }
+
+                drawCalendar();
+                updateAuthorButtons();
+
+                if (startDate || endDate) {
+                    let message = '';
+                    if (startDate && endDate && startDate.getTime() === endDate.getTime()) {
+                        message = t('copiedToClipboard') + '\n' +
+                            `Выбрана дата: ${startDate.toLocaleDateString()}`;
+                    } else if (startDate && endDate) {
+                        message = t('copiedToClipboard') + '\n' +
+                            `Выбран период: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+                    } else if (startDate) {
+                        message = t('copiedToClipboard') + '\n' +
+                            `Выбрана начальная дата: ${startDate.toLocaleDateString()}`;
+                    } else {
+                        message = t('copiedToClipboard') + '\n' +
+                            `Выбрана конечная дата: ${endDate.toLocaleDateString()}`;
+                    }
+
+                    showNotification(
+                        t('notificationTitle'),
+                        message + '\n' + t('goToExplore')
+                    );
+                } else {
+                    showNotification(
+                        t('notificationTitle'),
+                        'Пожалуйста, укажите хотя бы одну дату',
+                        false
+                    );
+                }
+            };
+
+            dateInputsContainer.append(
+                startDateLabel,
+                startDateInput,
+                endDateLabel,
+                endDateInput,
+                applyDatesBtn
+            );
+
+            // --- Author Filter ---
             const authorFilter = document.createElement('div');
             authorFilter.style.display = 'flex';
 
@@ -482,16 +605,20 @@
             function updateAuthorButtons() {
                 myPostsBtn.style.background = searchAuthor === 'me' ? themeVars.accentGreen : 'transparent';
                 allPostsBtn.style.background = searchAuthor === 'all' ? themeVars.accentGreen : 'transparent';
+                myPostsBtn.style.fontWeight = searchAuthor === 'me' ? 'bold' : 'normal';
+                allPostsBtn.style.fontWeight = searchAuthor === 'all' ? 'bold' : 'normal';
             }
 
             myPostsBtn.onclick = () => {
                 if (!myUsername) return;
                 searchAuthor = 'me';
+                GM_setValue('searchAuthor', searchAuthor);
                 updateAuthorButtons();
             };
 
             allPostsBtn.onclick = () => {
                 searchAuthor = 'all';
+                GM_setValue('searchAuthor', searchAuthor);
                 updateAuthorButtons();
             };
 
@@ -501,7 +628,319 @@
             }
 
             authorFilter.append(myPostsBtn, allPostsBtn);
+            updateAuthorButtons();
 
+            // --- Advanced Filters Section ---
+            const filtersToggleBtn = document.createElement('button');
+            filtersToggleBtn.innerHTML = '⌄ ' + t('advancedFilters');
+            Object.assign(filtersToggleBtn.style, {
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.9em',
+                padding: '5px 0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                margin: '0 auto 15px auto',
+                color: themeVars.accentPurple,
+                width: '100%',
+                justifyContent: 'center',
+                transition: 'color 0.2s ease'
+            });
+
+            filtersToggleBtn.addEventListener('mouseenter', () => {
+                filtersToggleBtn.style.color = themeVars.accentGreen;
+            });
+            filtersToggleBtn.addEventListener('mouseleave', () => {
+                filtersToggleBtn.style.color = themeVars.accentPurple;
+            });
+
+            const filtersContainer = document.createElement('div');
+            filtersContainer.style.display = 'none';
+            filtersContainer.style.marginTop = '10px';
+
+            // Content Type Filters (has:)
+            const contentTypeGroup = document.createElement('div');
+            contentTypeGroup.style.marginBottom = '15px';
+
+            const contentTypeLabel = document.createElement('div');
+            contentTypeLabel.textContent = t('contentType');
+            Object.assign(contentTypeLabel.style, {
+                marginBottom: '8px',
+                fontSize: '0.85em',
+                opacity: 0.9
+            });
+
+            const contentTypeButtons = document.createElement('div');
+            Object.assign(contentTypeButtons.style, {
+                display: 'flex',
+                flexWrap: 'wrap',
+                color: themeVars.accentPurple,
+                gap: '8px'
+            });
+
+            ['media', 'poll', 'embed'].forEach(type => {
+                const btn = document.createElement('button');
+                btn.textContent = `has:${type}`;
+                Object.assign(btn.style, {
+                    background: 'transparent',
+                    border: `1px solid ${themeVars.borderColor}`,
+                    borderRadius: '4px',
+                    padding: '6px 10px',
+                    fontSize: '0.85em',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    transition: 'all 0.2s ease'
+                });
+
+                btn.addEventListener('mouseenter', () => {
+                    btn.style.background = `${themeVars.progressBarShadow}30`;
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.background = 'transparent';
+                });
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'has';
+                checkbox.value = type;
+                checkbox.style.display = 'none';
+
+                btn.addEventListener('click', () => {
+                    checkbox.checked = !checkbox.checked;
+                    btn.style.background = checkbox.checked ? `${themeVars.accentGreen}80` : 'transparent';
+                    btn.style.borderColor = checkbox.checked ? themeVars.accentGreen : themeVars.borderColor;
+                    btn.style.color = checkbox.checked ? themeVars.accentGreen : themeVars.accentPurple;
+                });
+
+                contentTypeButtons.appendChild(btn);
+                contentTypeButtons.appendChild(checkbox);
+            });
+
+            contentTypeGroup.append(contentTypeLabel, contentTypeButtons);
+
+            // Post Type Filters (is:)
+            const postTypeGroup = document.createElement('div');
+            postTypeGroup.style.marginBottom = '15px';
+
+            const postTypeLabel = document.createElement('div');
+            postTypeLabel.textContent = t('postType');
+            Object.assign(postTypeLabel.style, {
+                marginBottom: '8px',
+                fontSize: '0.85em',
+                opacity: 0.9
+            });
+
+            const postTypeButtons = document.createElement('div');
+            Object.assign(postTypeButtons.style, {
+                display: 'flex',
+                flexWrap: 'wrap',
+                color: themeVars.accentPurple,
+                gap: '8px'
+            });
+
+            ['reply', 'sensitive'].forEach(type => {
+                const btn = document.createElement('button');
+                btn.textContent = `is:${type}`;
+                Object.assign(btn.style, {
+                    background: 'transparent',
+                    border: `1px solid ${themeVars.borderColor}`,
+                    borderRadius: '4px',
+                    padding: '6px 10px',
+                    fontSize: '0.85em',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    transition: 'all 0.2s ease'
+                });
+
+                btn.addEventListener('mouseenter', () => {
+                    btn.style.background = `${themeVars.progressBarShadow}30`;
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.background = 'transparent';
+                });
+
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'is';
+                radio.value = type;
+                radio.style.display = 'none';
+
+                btn.addEventListener('click', () => {
+                    if (radio.checked) {
+                        radio.checked = false;
+                        btn.style.background = 'transparent';
+                        btn.style.color = themeVars.accentPurple;
+                        btn.style.borderColor = themeVars.borderColor;
+                    } else {
+                        document.querySelectorAll('input[name="is"]').forEach(r => {
+                            r.checked = false;
+                            const associatedBtn = r.previousElementSibling;
+                            if (associatedBtn) {
+                                associatedBtn.style.background = 'transparent';
+                                associatedBtn.style.borderColor = themeVars.borderColor;
+                                associatedBtn.style.color = themeVars.accentPurple;
+                            }
+                        });
+                        radio.checked = true;
+                        btn.style.background = `${themeVars.accentGreen}80`;
+                        btn.style.color = themeVars.accentGreen;
+                        btn.style.borderColor = themeVars.accentGreen;
+                    }
+                });
+
+                postTypeButtons.appendChild(btn);
+                postTypeButtons.appendChild(radio);
+            });
+
+            postTypeGroup.append(postTypeLabel, postTypeButtons);
+
+            // Language Selector
+            const languageGroup = document.createElement('div');
+            languageGroup.style.marginBottom = '15px';
+
+            const languageLabel = document.createElement('div');
+            languageLabel.textContent = t('language') + ':';
+            Object.assign(languageLabel.style, {
+                marginBottom: '8px',
+                fontSize: '0.85em',
+                opacity: 0.9
+            });
+
+            const languageSelect = document.createElement('select');
+            languageSelect.name = 'language';
+            Object.assign(languageSelect.style, {
+                width: '100%',
+                padding: '8px',
+                borderRadius: '4px',
+                border: `1px solid ${themeVars.borderColor}`,
+                background: 'transparent',
+                color: themeVars.accentGreen,
+                fontSize: '0.9em'
+            });
+
+            ['', 'ru', 'en'].forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang;
+                option.textContent = lang === '' ? 'Any' :
+                lang === 'ru' ? 'Русский' : 'English';
+                if (lang === getCurrentPanelLanguage()) option.selected = true;
+                languageSelect.appendChild(option);
+            });
+
+            languageGroup.append(languageLabel, languageSelect);
+
+            // Search Scope (in:)
+            const searchScopeGroup = document.createElement('div');
+            searchScopeGroup.style.marginBottom = '15px';
+
+            const searchScopeLabel = document.createElement('div');
+            searchScopeLabel.textContent = t('searchScope');
+            Object.assign(searchScopeLabel.style, {
+                marginBottom: '8px',
+                fontSize: '0.85em',
+                opacity: 0.9
+            });
+
+            const searchScopeButtons = document.createElement('div');
+            Object.assign(searchScopeButtons.style, {
+                display: 'flex',
+                flexWrap: 'wrap',
+                color: themeVars.accentPurple,
+                gap: '8px'
+            });
+
+            ['all', 'library', 'public'].forEach(scope => {
+                const btn = document.createElement('button');
+                btn.textContent = `in:${scope}`;
+                Object.assign(btn.style, {
+                    background: 'transparent',
+                    border: `1px solid ${scope === 'all' ? themeVars.accentGreen : themeVars.borderColor}`,
+                    borderRadius: '4px',
+                    padding: '6px 10px',
+                    fontSize: '0.85em',
+                    cursor: 'pointer',
+                    color: scope === 'all' ? `${themeVars.accentGreen}` : themeVars.accentPurple,
+                    transition: 'all 0.2s ease'
+                });
+
+                btn.addEventListener('mouseenter', () => {
+                    if (!btn.style.background.includes(themeVars.accentGreen)) {
+                        btn.style.background = `${themeVars.progressBarShadow}30`;
+                    }
+                });
+                btn.addEventListener('mouseleave', () => {
+                    if (!btn.style.background.includes(themeVars.accentGreen)) {
+                        btn.style.background = 'transparent';
+                    }
+                });
+
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'in';
+                radio.value = scope;
+                radio.style.display = 'none';
+                if (scope === 'all') radio.checked = true;
+
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('input[name="in"]').forEach(r => {
+                        r.checked = false;
+                        const associatedBtn = r.previousElementSibling;
+                        if (associatedBtn) {
+                            associatedBtn.style.background = 'transparent';
+                            associatedBtn.style.borderColor = themeVars.borderColor;
+                            associatedBtn.style.color = themeVars.accentPurple;
+                        }
+                    });
+                    radio.checked = true;
+                    btn.style.background = `${themeVars.accentGreen}80`;
+                    btn.style.color = themeVars.accentGreen;
+                    btn.style.borderColor = themeVars.accentGreen;
+                });
+
+                searchScopeButtons.appendChild(btn);
+                searchScopeButtons.appendChild(radio);
+            });
+
+            searchScopeGroup.append(searchScopeLabel, searchScopeButtons);
+
+            filtersContainer.append(contentTypeGroup, postTypeGroup, languageGroup, searchScopeGroup);
+
+            // Toggle filters visibility
+            filtersToggleBtn.onclick = () => {
+                const filtersVisible = filtersContainer.style.display === 'block';
+
+                filtersContainer.style.display = filtersVisible ? 'none' : 'block';
+
+                // Переключаем видимость календаря
+                if (calHeader.parentNode) {
+                    calHeader.style.display = filtersVisible ? 'flex' : 'none';
+                }
+                if (daysGrid.parentNode) {
+                    daysGrid.style.display = filtersVisible ? 'grid' : 'none';
+                }
+
+                filtersToggleBtn.innerHTML = filtersVisible
+                    ? '⌄ ' + t('advancedFilters')
+                : '⌃ ' + t('advancedFilters');
+            };
+
+            // Добавляем кнопку сразу под заголовком
+            calendarView.appendChild(filtersToggleBtn);
+
+            // Контейнер для календаря
+            const calendarContainer = document.createElement('div');
+            calendarContainer.append(calHeader, daysGrid);
+            calendarView.appendChild(calendarContainer);
+
+            // Добавляем фильтры в календарный вид
+            calendarView.appendChild(filtersContainer);
+
+            // Добавляем остальные элементы
+            calendarView.append(dateInputsContainer, authorFilter);
+
+            // Find Posts Button
             const findBtn = document.createElement('button');
             findBtn.textContent = t('findPosts');
             Object.assign(findBtn.style, {
@@ -510,48 +949,76 @@
                 padding: '0.8em',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                color: 'inherit',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                marginTop: '10px',
+                width: '100%',
+                color: 'inherit'
             });
 
-            // Main search logic
             findBtn.onclick = () => {
-                if (!startDate) return;
-                if (!endDate) endDate = startDate;
-
                 let queryParts = [];
+
+                // Author filter
                 if (searchAuthor === 'me' && myUsername) {
                     queryParts.push(`from:@${myUsername}`);
                 }
 
-                const afterDate = new Date(startDate);
-                afterDate.setDate(afterDate.getDate());
-                queryParts.push(`after:${afterDate.toISOString().slice(0, 10)}`);
+                // Date filters
+                if (startDate || endDate) {
+                    if (startDate && endDate && startDate.getTime() === endDate.getTime()) {
+                        // Используем during если выбрана одна и та же дата
+                        queryParts.push(`during:${startDate.toISOString().slice(0, 10)}`);
+                    } else {
+                        if (startDate) queryParts.push(`after:${startDate.toISOString().slice(0, 10)}`);
+                        if (endDate) {
+                            const beforeDate = new Date(endDate);
+                            beforeDate.setDate(beforeDate.getDate() + 1);
+                            queryParts.push(`before:${beforeDate.toISOString().slice(0, 10)}`);
+                        }
+                    }
+                }
 
-                const beforeDate = new Date(endDate);
-                beforeDate.setDate(beforeDate.getDate() + 1);
-                queryParts.push(`before:${beforeDate.toISOString().slice(0, 10)}`);
+                // Advanced filters
+                document.querySelectorAll('input[name="has"]:checked').forEach(checkbox => {
+                    queryParts.push(`has:${checkbox.value}`);
+                });
+
+                const isType = document.querySelector('input[name="is"]:checked');
+                if (isType) queryParts.push(`is:${isType.value}`);
+
+                const language = document.querySelector('select[name="language"]').value;
+                if (language) queryParts.push(`language:${language}`);
+
+                const inScope = document.querySelector('input[name="in"]:checked');
+                if (inScope) queryParts.push(`in:${inScope.value}`);
+
+                // Validation
+                if (queryParts.length === 0 || (queryParts.length === 1 && queryParts[0].startsWith('from:'))) {
+                    showNotification(
+                        'Error',
+                        'Please specify at least one date or filter',
+                        false
+                    );
+                    return;
+                }
 
                 const finalQuery = queryParts.join(' ');
 
-                // If not on search page - copy to clipboard
                 navigator.clipboard.writeText(finalQuery).then(() => {
                     showNotification(
                         t('notificationTitle'),
-                        `${t('copiedToClipboard')}\n${t('goToExplore')}`
+                        `${t('copiedToClipboard')}\n${finalQuery}\n${t('goToExplore')}`
                     );
                 }).catch(err => {
                     showNotification(
                         'Error',
-                        `${t('copyError')} ${err.message}`,
+                        `Failed to copy: ${err.message}`,
                         false
                     );
                 });
             };
 
-            updateAuthorButtons();
-            controls.append(authorFilter, findBtn);
-            calendarView.append(calHeader, daysGrid, controls);
+            calendarView.appendChild(findBtn);
         }
 
         // Assemble panel
